@@ -1,0 +1,12 @@
+{
+    "name": "ika-gmail-scraper",
+    "description": "This app downloads attachments sent by a specific email",
+    "keywords": [
+      "scrapper",
+      "go",
+      "gmail-scrapper",
+      "gmail-attachment-downloader"
+    ],
+    "website": "github.com/collinewait/ika-gmail-scraper",
+    "repository": "github.com/collinewait/ika-gmail-scraper"
+  }
