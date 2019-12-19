@@ -6,14 +6,17 @@ import (
 	"log"
 	"net/http"
 	"os"
+
+	"github.com/gorilla/mux"
 )
 
 func main() {
 	sum := addNumbers(2, 6)
 	fmt.Println(sum)
 
-	http.HandleFunc("/", hello)
-	log.Fatal(http.ListenAndServe(GetPort(), nil))
+	r := mux.NewRouter()
+	r.HandleFunc("/", hello)
+	log.Fatal(http.ListenAndServe(GetPort(), r))
 }
 
 func hello(w http.ResponseWriter, r *http.Request) {
