@@ -14,7 +14,6 @@ import (
 
 var (
 	googleOauthConfig *oauth2.Config
-	oauthStateString  = "pseudo-random"
 )
 
 func init() {
@@ -27,13 +26,23 @@ func init() {
 	}
 }
 
-func GoogleLogin(w http.ResponseWriter, r *http.Request) {
+type Oauth struct {
+	stateString string
+}
+
+func (oauth *Oauth) generateRandomString() string {
+	return "pseudo-random"
+}
+
+func (oauth *Oauth) GoogleLogin(w http.ResponseWriter, r *http.Request) {
+	oauthStateString := oauth.generateRandomString()
+	oauth.stateString = oauthStateString
 	url := googleOauthConfig.AuthCodeURL(oauthStateString)
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
-func GoogleCallback(w http.ResponseWriter, r *http.Request) {
-	if r.FormValue("state") != oauthStateString {
+func (oauth *Oauth) GoogleCallback(w http.ResponseWriter, r *http.Request) {
+	if r.FormValue("state") != oauth.stateString {
 		log.Println("invalid oauth google state")
 		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 		return
@@ -44,10 +53,10 @@ func GoogleCallback(w http.ResponseWriter, r *http.Request) {
 	gmailService := getGmailService(client)
 	log.Println(gmailService)
 
-	io.WriteString(w, "Can call the api now, ") // nolint
+	io.WriteString(w, "Can call the api now") // nolint
 }
 
-func getClient(config *oauth2.Config, code string) *http.Client {
+var getClient = func(config *oauth2.Config, code string) *http.Client {
 	token, err := googleOauthConfig.Exchange(context.TODO(), code)
 	if err != nil {
 		log.Fatalf("Unable to retrieve token: %v", err)
