@@ -10,7 +10,6 @@ import (
 )
 
 func main() {
-	fmt.Println(addNumbers(3, 5))
 	r := router.NewRouter()
 	log.Fatal(http.ListenAndServe(GetPort(), r))
 }
@@ -24,8 +23,4 @@ func GetPort() string {
 		fmt.Println("INFO: No PORT environment variable detected, defaulting to " + port)
 	}
 	return ":" + port
-}
-
-func addNumbers(a, b int) int {
-	return a + b
 }
