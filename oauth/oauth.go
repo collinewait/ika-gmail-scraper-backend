@@ -10,6 +10,7 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/gmail/v1"
+	"github.com/dchest/uniuri"
 )
 
 var (
@@ -31,7 +32,8 @@ type Oauth struct {
 }
 
 func (oauth *Oauth) generateRandomString() string {
-	return "pseudo-random"
+	s := uniuri.New()
+	return s
 }
 
 func (oauth *Oauth) GoogleLogin(w http.ResponseWriter, r *http.Request) {
