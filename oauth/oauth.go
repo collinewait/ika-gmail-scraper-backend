@@ -7,10 +7,11 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/dchest/uniuri"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/gmail/v1"
-	"github.com/dchest/uniuri"
+	"google.golang.org/api/option"
 )
 
 var (
@@ -51,23 +52,24 @@ func (oauth *Oauth) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	code := r.FormValue("code")
-	client := getClient(googleOauthConfig, code)
-	gmailService := getGmailService(client)
+	token := getToken(code)
+	gmailService := getGmailService(googleOauthConfig, token)
 	log.Println(gmailService)
 
 	io.WriteString(w, "Can call the api now") // nolint
 }
 
-var getClient = func(config *oauth2.Config, code string) *http.Client {
+var getToken = func(code string) *oauth2.Token {
 	token, err := googleOauthConfig.Exchange(context.TODO(), code)
 	if err != nil {
 		log.Fatalf("Unable to retrieve token: %v", err)
 	}
-	return config.Client(context.Background(), token)
+	return token
 }
 
-func getGmailService(client *http.Client) *gmail.Service {
-	service, err := gmail.New(client) // nolint
+func getGmailService(config *oauth2.Config, token *oauth2.Token) *gmail.Service {
+	ctx := context.Background()
+	service, err := gmail.NewService(ctx, option.WithTokenSource(config.TokenSource(ctx, token)))
 	if err != nil {
 		log.Fatalf("Unable to retrieve Gmail client: %v", err)
 	}
