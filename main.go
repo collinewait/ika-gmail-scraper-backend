@@ -7,11 +7,15 @@ import (
 	"os"
 
 	"github.com/collinewait/ika-gmail-scraper/router"
+	"github.com/gorilla/handlers"
 )
 
 func main() {
 	r := router.NewRouter()
-	log.Fatal(http.ListenAndServe(GetPort(), r))
+	headers := handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Authorization"})
+	methods := handlers.AllowedMethods([]string{"GET", "POST"})
+	origins := handlers.AllowedOrigins([]string{"*"})
+	log.Fatal(http.ListenAndServe(GetPort(), handlers.CORS(headers, methods, origins)(r)))
 }
 
 // GetPort gets the Port from the environment so we can run on Heroku
