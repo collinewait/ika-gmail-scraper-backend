@@ -55,8 +55,8 @@ func Test_GoogleCallback_shouldReturnAString(t *testing.T) {
 		stateString: "pseudo-random",
 	}
 
-	getClient = func(config *oauth2.Config, code string) *http.Client {
-		return &http.Client{}
+	getToken = func(code string) *oauth2.Token {
+		return &oauth2.Token{}
 	}
 
 	o.GoogleCallback(w, r)
