@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/collinewait/ika-gmail-scraper/oauth"
+	"github.com/collinewait/ika-gmail-scraper/scraper"
 	"github.com/gorilla/mux"
 )
 
@@ -19,5 +20,6 @@ func NewRouter() *mux.Router {
 	r := mux.NewRouter()
 	r.HandleFunc("/auth/google/login", o.GoogleLogin)
 	r.HandleFunc("/auth/google/callback", o.GoogleCallback)
+	r.HandleFunc("/download/attachment", scraper.Scrape)
 	return r
 }
