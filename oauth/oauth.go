@@ -56,7 +56,7 @@ func (oauth *Oauth) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 	gmailService := getGmailService(googleOauthConfig, token)
 	log.Println(gmailService)
 
-	http.Redirect(w, r, "http://localhost:3000?access_token="+token.AccessToken, http.StatusFound)
+	http.Redirect(w, r, os.Getenv("FRONTEND_URL")+"?access_token="+token.AccessToken, http.StatusFound)
 }
 
 var getToken = func(code string) *oauth2.Token {
