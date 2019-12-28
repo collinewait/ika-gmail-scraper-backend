@@ -53,9 +53,6 @@ func (oauth *Oauth) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 	code := r.FormValue("code")
 	token := getToken(code)
 
-	gmailService := getGmailService(googleOauthConfig, token)
-	log.Println(gmailService)
-
 	http.Redirect(w, r, os.Getenv("FRONTEND_URL")+"?access_token="+token.AccessToken, http.StatusFound)
 }
 
@@ -67,9 +64,13 @@ var getToken = func(code string) *oauth2.Token {
 	return token
 }
 
-func getGmailService(config *oauth2.Config, token *oauth2.Token) *gmail.Service {
+// GetGmailService will return a gmail service.
+func GetGmailService(token string) *gmail.Service {
 	ctx := context.Background()
-	service, err := gmail.NewService(ctx, option.WithTokenSource(config.TokenSource(ctx, token)))
+	oauthToken := &oauth2.Token{
+		AccessToken: token,
+	}
+	service, err := gmail.NewService(ctx, option.WithTokenSource(googleOauthConfig.TokenSource(ctx, oauthToken)))
 	if err != nil {
 		log.Fatalf("Unable to retrieve Gmail client: %v", err)
 	}

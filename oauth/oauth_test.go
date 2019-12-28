@@ -65,3 +65,11 @@ func Test_GoogleCallback_shouldRedirect(t *testing.T) {
 		t.Errorf("GoogleCallback() = %v, want %v", actualStatusCode, expectedStatusCode)
 	}
 }
+
+func Test_GetGmailService(t *testing.T) {
+	expectedBasePathValue := "https://www.googleapis.com/gmail/v1/users/"
+	actualValue := GetGmailService("sometokenhere")
+	if actualValue.BasePath != expectedBasePathValue {
+		t.Errorf("GetGmailService() = %v, want %v", actualValue, expectedBasePathValue)
+	}
+}
