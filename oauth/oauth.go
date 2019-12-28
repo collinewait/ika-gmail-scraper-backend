@@ -2,7 +2,6 @@ package oauth
 
 import (
 	"context"
-	"io"
 	"log"
 	"net/http"
 	"os"
@@ -53,10 +52,11 @@ func (oauth *Oauth) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 
 	code := r.FormValue("code")
 	token := getToken(code)
+
 	gmailService := getGmailService(googleOauthConfig, token)
 	log.Println(gmailService)
 
-	io.WriteString(w, "Can call the api now") // nolint
+	http.Redirect(w, r, "http://localhost:3000?access_token="+token.AccessToken, http.StatusFound)
 }
 
 var getToken = func(code string) *oauth2.Token {
