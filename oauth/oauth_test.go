@@ -1,8 +1,6 @@
 package oauth
 
 import (
-	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -44,12 +42,12 @@ func Test_GoogleCallback_shouldRedirectOnWrongState(t *testing.T) {
 	}
 }
 
-func Test_GoogleCallback_shouldReturnAString(t *testing.T) {
+func Test_GoogleCallback_shouldRedirect(t *testing.T) {
 
 	r := httptest.NewRequest(http.MethodGet, "/auth/google/callback?state=pseudo-random&code=somecodehere", nil)
 	w := httptest.NewRecorder()
 
-	expected := "Can call the api now"
+	expectedStatusCode := 302
 
 	o := &Oauth{
 		stateString: "pseudo-random",
@@ -61,10 +59,9 @@ func Test_GoogleCallback_shouldReturnAString(t *testing.T) {
 
 	o.GoogleCallback(w, r)
 
-	fmt.Println(w.Result().StatusCode)
-	resBody, _ := ioutil.ReadAll(w.Result().Body)
+	actualStatusCode := w.Result().StatusCode
 
-	if string(resBody) != expected {
-		t.Errorf("GoogleCallback() = %v, want %v", resBody, expected)
+	if actualStatusCode != expectedStatusCode {
+		t.Errorf("GoogleCallback() = %v, want %v", actualStatusCode, expectedStatusCode)
 	}
 }
