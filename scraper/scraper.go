@@ -145,9 +145,8 @@ func getIDs(service *gmail.Service,
 
 	r, err := m.fetchMessages(service, query)
 	if err != nil {
-		errs.msg = "Unable to retrieve Messages"
-		errs.err = err
-		errorsCh <- errs
+		msg := "Unable to retrieve Messages"
+		populateErrorChan(errs, msg, err, errorsCh)
 		return nil, errorsCh
 	}
 	msgs = append(msgs, r.Messages...)
@@ -155,9 +154,8 @@ func getIDs(service *gmail.Service,
 	for len(r.NextPageToken) != 0 {
 		r, err = m.fetchNextPage(service, query, r.NextPageToken)
 		if err != nil {
-			errs.msg = "Unable to retrieve Messages on the next page"
-			errs.err = err
-			errorsCh <- errs
+			msg := "Unable to retrieve Messages on the next page"
+			populateErrorChan(errs, msg, err, errorsCh)
 			return nil, errorsCh
 		}
 		msgs = append(msgs, r.Messages...)
@@ -206,9 +204,8 @@ func getMessageContent(
 			defer wg.Done()
 			msgContent, err := c.getContent(service, id)
 			if err != nil {
-				errs.msg = "Unable to retrieve Message Contents"
-				errs.err = err
-				errorsCh <- errs
+				msg := "Unable to retrieve Message Contents"
+				populateErrorChan(errs, msg, err, errorsCh)
 				close(errorsCh)
 			}
 			msgCh <- msgContent
@@ -249,9 +246,8 @@ func getAttachment(
 					newFileName := tm.Format("Jan-02-2006") + "-" + part.Filename
 					msgPartBody, err := as.fetchAttachment(service, msgContent.Id, part.Body.AttachmentId)
 					if err != nil {
-						errs.msg = "Unable to retrieve Attachment"
-						errs.err = err
-						errorsCh <- errs
+						msg := "Unable to retrieve Attachment"
+						populateErrorChan(errs, msg, err, errorsCh)
 						close(errorsCh)
 					}
 					attach.data = msgPartBody.Data
@@ -299,4 +295,15 @@ func saveAttachment(attachCh <-chan *attachment, doneCh chan bool) {
 		fmt.Println("Error on zw.Close. ", err.Error())
 	}
 	doneCh <- true
+}
+
+func populateErrorChan(
+	msgErr *messageError,
+	msg string,
+	err error,
+	errorsCh chan *messageError,
+) {
+	msgErr.msg = msg
+	msgErr.err = err
+	errorsCh <- msgErr
 }
