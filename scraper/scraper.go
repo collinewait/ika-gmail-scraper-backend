@@ -39,7 +39,7 @@ func Scrape(w http.ResponseWriter, r *http.Request) {
 	cont = &messageContent{}
 	as = &attachment{}
 
-	doneChannel := make(chan bool)
+	doneChannel := make(chan bool, 1)
 	messagesChannel, getIDsErr := getIDs(service, emailThatSentAttach, ms)
 	if len(getIDsErr) != 0 {
 		err := <-getIDsErr
@@ -60,14 +60,15 @@ func Scrape(w http.ResponseWriter, r *http.Request) {
 		errorResponse(w, msg)
 	}
 
-	go saveAttachment(attachmentChannel, doneChannel)
+	saveAttachment(attachmentChannel, doneChannel)
 
 	<-doneChannel
-
+	fmt.Println("Completed processing, returning file....")
 	w.Header().Set("Content-type", "application/zip")
 	http.ServeFile(w, r, fileAddress)
 
 	defer os.Remove(fileAddress)
+	fmt.Println("End of execution")
 }
 
 func extractToken(r *http.Request) (string, error) {
@@ -273,6 +274,8 @@ func saveAttachment(attachCh <-chan *attachment, doneCh chan bool) {
 	defer outFile.Close()
 
 	zw := zip.NewWriter(outFile)
+	defer zw.Close()
+
 	var wg sync.WaitGroup
 	for attach := range attachCh {
 		fmt.Println("Saving attachment....")
@@ -290,11 +293,9 @@ func saveAttachment(attachCh <-chan *attachment, doneCh chan bool) {
 		}(attach)
 	}
 	wg.Wait()
-	err = zw.Close()
-	if err != nil {
-		fmt.Println("Error on zw.Close. ", err.Error())
-	}
+	fmt.Println("Done saving attachment.")
 	doneCh <- true
+	fmt.Println("Done saving attachment. last statement")
 }
 
 func populateErrorChan(
