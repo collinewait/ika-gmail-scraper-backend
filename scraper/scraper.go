@@ -291,30 +291,26 @@ func saveAttachment(
 
 	zw := zip.NewWriter(outFile)
 
-	var wg sync.WaitGroup
 	for attach := range attachCh {
 		fmt.Println("Saving attachment....")
-		wg.Add(1)
-		go func(attach *attachment) {
-			defer wg.Done()
-			decoded, _ := base64.URLEncoding.DecodeString(attach.data)
-			f, err := zw.Create(attach.fileName)
-			if err != nil {
-				msg := "Unable to create a zip writer"
-				populateErrorChan(errs, msg, err, attachErrCh)
-				return // nolint
-			}
-			if _, err := f.Write(decoded); err != nil {
-				msg := "Unable to write a file to the disk"
-				populateErrorChan(errs, msg, err, attachErrCh)
-			}
-		}(attach)
+		decoded, _ := base64.URLEncoding.DecodeString(attach.data)
+		f, err := zw.Create(attach.fileName)
+		if err != nil {
+			msg := "Unable to create a zip writer"
+			populateErrorChan(errs, msg, err, attachErrCh)
+			return // nolint
+		}
+		if _, err := f.Write(decoded); err != nil {
+			msg := "Unable to write a file to the disk"
+			populateErrorChan(errs, msg, err, attachErrCh)
+		}
 	}
-	wg.Wait()
+
 	if err := zw.Close(); err != nil {
 		msg := "failed to close zip writer."
 		populateErrorChan(errs, msg, err, attachErrCh)
 	}
+
 	close(attachErrCh)
 	doneCh <- true
 }
