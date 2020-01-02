@@ -2,11 +2,15 @@ package oauth
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/dchest/uniuri"
+	"github.com/dgrijalva/jwt-go"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/gmail/v1"
@@ -16,6 +20,7 @@ import (
 var (
 	googleOauthConfig *oauth2.Config
 )
+var jwtKey = []byte(os.Getenv("JWT_SECRET_KEY"))
 
 func init() {
 	googleOauthConfig = &oauth2.Config{
@@ -51,9 +56,13 @@ func (oauth *Oauth) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	code := r.FormValue("code")
-	token := getToken(code)
+	oauth2Token := getToken(code)
 
-	http.Redirect(w, r, os.Getenv("FRONTEND_URL")+"?access_token="+token.AccessToken, http.StatusFound)
+	jwtToken, _ := oauth.generateJwtToken()
+
+	fmt.Printf("jwtToken: %s. oauth2Token: %s", jwtToken, oauth2Token)
+
+	http.Redirect(w, r, os.Getenv("FRONTEND_URL")+"?access_token="+jwtToken, http.StatusFound)
 }
 
 var getToken = func(code string) *oauth2.Token {
@@ -75,4 +84,45 @@ func GetGmailService(token string) *gmail.Service {
 		log.Fatalf("Unable to retrieve Gmail client: %v", err)
 	}
 	return service
+}
+
+// Claims struct to be encoded to a JWT.
+type Claims struct {
+	RandomID string
+	jwt.StandardClaims
+}
+
+func (oauth *Oauth) generateJwtToken() (string, error) {
+	expirationTime := time.Now().Add(12 * time.Hour)
+	claims := &Claims{
+		RandomID: oauth.stateString,
+		StandardClaims: jwt.StandardClaims{
+			// In JWT, the expiry time is expressed as unix milliseconds
+			ExpiresAt: expirationTime.Unix(),
+		},
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, err := token.SignedString(jwtKey)
+	if err != nil {
+		return "", err
+	}
+
+	return tokenString, nil
+}
+
+//DecodeJwtToken Parse the JWT string and store the result in `claims`.
+func DecodeJwtToken(tokenString string) (*Claims, error) {
+	claims := &Claims{}
+	tkn, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+		return jwtKey, nil
+	})
+
+	if err != nil {
+		return nil, errors.New(err.Error())
+	}
+	if !tkn.Valid {
+		return nil, errors.New(err.Error())
+	}
+
+	return claims, nil
 }

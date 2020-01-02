@@ -7,6 +7,7 @@ go 1.13
 require (
 	cloud.google.com/go v0.50.0 // indirect
 	github.com/dchest/uniuri v0.0.0-20160212164326-8902c56451e9
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/golang/groupcache v0.0.0-20191027212112-611e8accdfc9 // indirect
 	github.com/gorilla/handlers v1.4.2
 	github.com/gorilla/mux v1.7.3

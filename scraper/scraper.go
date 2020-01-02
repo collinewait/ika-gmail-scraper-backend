@@ -30,7 +30,14 @@ func Scrape(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fmt.Println(err.Error())
 	}
-	service := oauth.GetGmailService(token)
+	claim, err := oauth.DecodeJwtToken(token)
+	if err != nil {
+		errorResponse(w, err.Error())
+		return //nolint
+	}
+	fmt.Println("The random id is: ", claim.RandomID)
+
+	service := oauth.GetGmailService(token) // token to be replaced with oauth2 token
 
 	var ms messageSevice
 	var cont content
