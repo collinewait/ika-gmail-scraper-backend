@@ -12,10 +12,11 @@ import (
 
 func main() {
 	r := router.NewRouter()
-	headers := handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Authorization"})
+	headers := handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Authorization", "Origin"})
 	methods := handlers.AllowedMethods([]string{"GET", "POST"})
-	origins := handlers.AllowedOrigins([]string{"*"})
-	log.Fatal(http.ListenAndServe(GetPort(), handlers.CORS(headers, methods, origins)(r)))
+	origins := handlers.AllowedOrigins([]string{"https://accounts.google.com", os.Getenv("FRONTEND_URL")})
+	allowCreds := handlers.AllowCredentials()
+	log.Fatal(http.ListenAndServe(GetPort(), handlers.CORS(headers, methods, origins, allowCreds)(r)))
 }
 
 // GetPort gets the Port from the environment so we can run on Heroku

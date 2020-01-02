@@ -2,6 +2,7 @@ package oauth
 
 import (
 	"context"
+	"encoding/gob"
 	"errors"
 	"fmt"
 	"log"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/dchest/uniuri"
 	"github.com/dgrijalva/jwt-go"
+	"github.com/gorilla/sessions"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/gmail/v1"
@@ -21,6 +23,7 @@ var (
 	googleOauthConfig *oauth2.Config
 )
 var jwtKey = []byte(os.Getenv("JWT_SECRET_KEY"))
+var store = sessions.NewCookieStore([]byte(os.Getenv("SESSION_KEY")))
 
 func init() {
 	googleOauthConfig = &oauth2.Config{
@@ -29,6 +32,15 @@ func init() {
 		ClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
 		Scopes:       []string{gmail.GmailReadonlyScope},
 		Endpoint:     google.Endpoint,
+	}
+
+	// to store this complex datatype within a session,
+	// we register it for storage in sessions
+	gob.Register(&oauth2.Token{})
+	store.Options = &sessions.Options{
+		Path:     "/",
+		MaxAge:   3600 * 12, // 12 hours
+		HttpOnly: true,
 	}
 }
 
@@ -44,7 +56,7 @@ func (oauth *Oauth) generateRandomString() string {
 func (oauth *Oauth) GoogleLogin(w http.ResponseWriter, r *http.Request) {
 	oauthStateString := oauth.generateRandomString()
 	oauth.stateString = oauthStateString
-	url := googleOauthConfig.AuthCodeURL(oauthStateString)
+	url := googleOauthConfig.AuthCodeURL(oauthStateString, oauth2.AccessTypeOffline)
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
@@ -57,10 +69,13 @@ func (oauth *Oauth) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 
 	code := r.FormValue("code")
 	oauth2Token := getToken(code)
+	fmt.Println("Inside GoogleCallback() RefreshToken: ", oauth2Token.RefreshToken)
+	err := oauth.saveoauthTokenInSession(w, r, oauth2Token)
+	if err != nil {
+		http.Redirect(w, r, "/", http.StatusInternalServerError)
+	}
 
 	jwtToken, _ := oauth.generateJwtToken()
-
-	fmt.Printf("jwtToken: %s. oauth2Token: %s", jwtToken, oauth2Token)
 
 	http.Redirect(w, r, os.Getenv("FRONTEND_URL")+"?access_token="+jwtToken, http.StatusFound)
 }
@@ -74,12 +89,10 @@ var getToken = func(code string) *oauth2.Token {
 }
 
 // GetGmailService will return a gmail service.
-func GetGmailService(token string) *gmail.Service {
+func GetGmailService(token *oauth2.Token) *gmail.Service {
+	fmt.Println("Inside GetGmailService() RefreshToken: ", token.RefreshToken)
 	ctx := context.Background()
-	oauthToken := &oauth2.Token{
-		AccessToken: token,
-	}
-	service, err := gmail.NewService(ctx, option.WithTokenSource(googleOauthConfig.TokenSource(ctx, oauthToken)))
+	service, err := gmail.NewService(ctx, option.WithTokenSource(googleOauthConfig.TokenSource(ctx, token)))
 	if err != nil {
 		log.Fatalf("Unable to retrieve Gmail client: %v", err)
 	}
@@ -125,4 +138,42 @@ func DecodeJwtToken(tokenString string) (*Claims, error) {
 	}
 
 	return claims, nil
+}
+
+func (oauth *Oauth) saveoauthTokenInSession(
+	w http.ResponseWriter,
+	r *http.Request,
+	oauth2Token *oauth2.Token,
+) error {
+	session, err := store.Get(r, "session-name")
+	if err != nil {
+		fmt.Println("Error in saveoauthTokenInSession: ", err.Error())
+		return err
+	}
+
+	session.Values[oauth.stateString] = oauth2Token
+	err = session.Save(r, w)
+	if err != nil {
+		fmt.Println("Error in saveoauthTokenInSession: ", err.Error())
+		return err
+	}
+
+	return nil
+}
+
+// RetrieveTokenFromSession returns a token stored in the session
+func RetrieveTokenFromSession(r *http.Request, randomID string) (*oauth2.Token, error) {
+	session, err := store.Get(r, "session-name")
+	if err != nil {
+		return nil, err
+	}
+
+	// Retrieve our struct and type-assert it
+	val := session.Values[randomID]
+	oauth2Token, ok := val.(*oauth2.Token)
+	if !ok {
+		return nil, errors.New("received an expected type of oauth2Token")
+	}
+
+	return oauth2Token, nil
 }
