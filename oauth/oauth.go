@@ -2,7 +2,6 @@ package oauth
 
 import (
 	"context"
-	"encoding/gob"
 	"errors"
 	"fmt"
 	"log"
@@ -34,9 +33,6 @@ func init() {
 		Endpoint:     google.Endpoint,
 	}
 
-	// to store this complex datatype within a session,
-	// we register it for storage in sessions
-	gob.Register(&oauth2.Token{})
 	store.Options = &sessions.Options{
 		Path:     "/",
 		MaxAge:   3600 * 12, // 12 hours
@@ -69,10 +65,10 @@ func (oauth *Oauth) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 
 	code := r.FormValue("code")
 	oauth2Token := getToken(code)
-	fmt.Println("Inside GoogleCallback() RefreshToken: ", oauth2Token.RefreshToken)
-	err := oauth.saveoauthTokenInSession(w, r, oauth2Token)
+	err := oauth.saveoauthTokensInSession(w, r, oauth2Token)
 	if err != nil {
 		http.Redirect(w, r, "/", http.StatusInternalServerError)
+		return
 	}
 
 	jwtToken, _ := oauth.generateJwtToken()
@@ -89,10 +85,14 @@ var getToken = func(code string) *oauth2.Token {
 }
 
 // GetGmailService will return a gmail service.
-func GetGmailService(token *oauth2.Token) *gmail.Service {
-	fmt.Println("Inside GetGmailService() RefreshToken: ", token.RefreshToken)
+func GetGmailService(token, refreshToken string) *gmail.Service {
 	ctx := context.Background()
-	service, err := gmail.NewService(ctx, option.WithTokenSource(googleOauthConfig.TokenSource(ctx, token)))
+	fmt.Println("Refrsh in GetGmailService: ", refreshToken)
+	oauth2Token := &oauth2.Token{
+		AccessToken:  token,
+		RefreshToken: refreshToken,
+	}
+	service, err := gmail.NewService(ctx, option.WithTokenSource(googleOauthConfig.TokenSource(ctx, oauth2Token)))
 	if err != nil {
 		log.Fatalf("Unable to retrieve Gmail client: %v", err)
 	}
@@ -123,7 +123,7 @@ func (oauth *Oauth) generateJwtToken() (string, error) {
 	return tokenString, nil
 }
 
-//DecodeJwtToken Parse the JWT string and store the result in `claims`.
+//DecodeJwtToken Parse the JWT string and store the result in claims.
 func DecodeJwtToken(tokenString string) (*Claims, error) {
 	claims := &Claims{}
 	tkn, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
@@ -140,18 +140,20 @@ func DecodeJwtToken(tokenString string) (*Claims, error) {
 	return claims, nil
 }
 
-func (oauth *Oauth) saveoauthTokenInSession(
+func (oauth *Oauth) saveoauthTokensInSession(
 	w http.ResponseWriter,
 	r *http.Request,
 	oauth2Token *oauth2.Token,
 ) error {
-	session, err := store.Get(r, "session-name")
+
+	session, err := store.Get(r, "oauth-session")
 	if err != nil {
 		fmt.Println("Error in saveoauthTokenInSession: ", err.Error())
 		return err
 	}
 
-	session.Values[oauth.stateString] = oauth2Token
+	session.Values[oauth.stateString+"AccessToken"] = oauth2Token.AccessToken
+	session.Values[oauth.stateString+"RefreshToken"] = oauth2Token.RefreshToken
 	err = session.Save(r, w)
 	if err != nil {
 		fmt.Println("Error in saveoauthTokenInSession: ", err.Error())
@@ -161,19 +163,25 @@ func (oauth *Oauth) saveoauthTokenInSession(
 	return nil
 }
 
-// RetrieveTokenFromSession returns a token stored in the session
-func RetrieveTokenFromSession(r *http.Request, randomID string) (*oauth2.Token, error) {
-	session, err := store.Get(r, "session-name")
+// RetrieveTokensFromSession returns a token stored in the session
+func RetrieveTokensFromSession(
+	r *http.Request,
+	randomID string,
+) (string, string, error) {
+	session, err := store.Get(r, "oauth-session")
 	if err != nil {
-		return nil, err
+		return "", "", err
 	}
 
-	// Retrieve our struct and type-assert it
-	val := session.Values[randomID]
-	oauth2Token, ok := val.(*oauth2.Token)
+	tkn, ok := session.Values[randomID+"AccessToken"].(string)
 	if !ok {
-		return nil, errors.New("received an expected type of oauth2Token")
+		return "", "", errors.New("received unexpected type of token")
 	}
 
-	return oauth2Token, nil
+	rtkn, ok := session.Values[randomID+"RefreshToken"].(string)
+	if !ok {
+		return "", "", errors.New("received unexpected type of refresh token")
+	}
+
+	return tkn, rtkn, nil
 }

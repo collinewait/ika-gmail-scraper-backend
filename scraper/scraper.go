@@ -26,6 +26,7 @@ func Scrape(w http.ResponseWriter, r *http.Request) {
 	emailThatSentAttach := r.FormValue("emailThatSentAttach")
 	fileAddress = "attachments" + strconv.FormatInt(time.Now().Unix(), 10) + ".zip"
 	defer os.Remove(fileAddress)
+
 	token, err := extractToken(r)
 	if err != nil {
 		fmt.Println(err.Error())
@@ -36,15 +37,15 @@ func Scrape(w http.ResponseWriter, r *http.Request) {
 		return //nolint
 	}
 
-	oauthToken, err := oauth.RetrieveTokenFromSession(r, claim.RandomID)
+	oauthTkn, oauthRtkn, err := oauth.RetrieveTokensFromSession(r, claim.RandomID)
 	if err != nil {
 		errorResponse(w, err.Error())
 		return //nolint
 	}
 
-	fmt.Println("In Scrape. RefreshToken: ", oauthToken.RefreshToken)
+	fmt.Println("Refresh token>>>: ", oauthRtkn)
 
-	service := oauth.GetGmailService(oauthToken)
+	service := oauth.GetGmailService(oauthTkn, oauthRtkn)
 
 	var ms messageSevice
 	var cont content
@@ -108,7 +109,6 @@ func errorResponse(w http.ResponseWriter, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusBadRequest)
 	errMsg := fmt.Sprintf(`{"error": "%s"}`, message)
-
 	w.Write([]byte(errMsg)) // nolint
 }
 
