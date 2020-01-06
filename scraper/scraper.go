@@ -37,15 +37,13 @@ func Scrape(w http.ResponseWriter, r *http.Request) {
 		return //nolint
 	}
 
-	oauthTkn, oauthRtkn, err := oauth.RetrieveTokensFromSession(r, claim.RandomID)
+	oauthTkn, oauthRtkn, expiry, err := oauth.RetrieveTokensFromSession(r, claim.RandomID)
 	if err != nil {
 		errorResponse(w, err.Error())
 		return //nolint
 	}
 
-	fmt.Println("Refresh token>>>: ", oauthRtkn)
-
-	service := oauth.GetGmailService(oauthTkn, oauthRtkn)
+	service := oauth.GetGmailService(oauthTkn, oauthRtkn, expiry)
 
 	var ms messageSevice
 	var cont content

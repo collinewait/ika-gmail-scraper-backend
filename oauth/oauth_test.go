@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"golang.org/x/oauth2"
 )
@@ -69,7 +70,7 @@ func Test_GoogleCallback_shouldRedirect(t *testing.T) {
 
 func Test_GetGmailService(t *testing.T) {
 	expectedBasePathValue := "https://www.googleapis.com/gmail/v1/users/"
-	actualValue := GetGmailService("oauthToken", "refreshToken")
+	actualValue := GetGmailService("oauthToken", "refreshToken", time.Now())
 	if actualValue.BasePath != expectedBasePathValue {
 		t.Errorf("GetGmailService() = %v, want %v", actualValue, expectedBasePathValue)
 	}

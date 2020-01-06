@@ -2,6 +2,7 @@ package oauth
 
 import (
 	"context"
+	"encoding/gob"
 	"errors"
 	"fmt"
 	"log"
@@ -32,6 +33,8 @@ func init() {
 		Scopes:       []string{gmail.GmailReadonlyScope},
 		Endpoint:     google.Endpoint,
 	}
+
+	gob.Register(&time.Time{})
 
 	store.Options = &sessions.Options{
 		Path:     "/",
@@ -85,12 +88,12 @@ var getToken = func(code string) *oauth2.Token {
 }
 
 // GetGmailService will return a gmail service.
-func GetGmailService(token, refreshToken string) *gmail.Service {
+func GetGmailService(token, refreshToken string, expiry time.Time) *gmail.Service {
 	ctx := context.Background()
-	fmt.Println("Refrsh in GetGmailService: ", refreshToken)
 	oauth2Token := &oauth2.Token{
 		AccessToken:  token,
 		RefreshToken: refreshToken,
+		Expiry:       expiry,
 	}
 	service, err := gmail.NewService(ctx, option.WithTokenSource(googleOauthConfig.TokenSource(ctx, oauth2Token)))
 	if err != nil {
@@ -154,6 +157,7 @@ func (oauth *Oauth) saveoauthTokensInSession(
 
 	session.Values[oauth.stateString+"AccessToken"] = oauth2Token.AccessToken
 	session.Values[oauth.stateString+"RefreshToken"] = oauth2Token.RefreshToken
+	session.Values[oauth.stateString+"Expiry"] = oauth2Token.Expiry
 	err = session.Save(r, w)
 	if err != nil {
 		fmt.Println("Error in saveoauthTokenInSession: ", err.Error())
@@ -167,21 +171,26 @@ func (oauth *Oauth) saveoauthTokensInSession(
 func RetrieveTokensFromSession(
 	r *http.Request,
 	randomID string,
-) (string, string, error) {
+) (string, string, time.Time, error) {
 	session, err := store.Get(r, "oauth-session")
 	if err != nil {
-		return "", "", err
+		return "", "", time.Now(), err
 	}
 
 	tkn, ok := session.Values[randomID+"AccessToken"].(string)
 	if !ok {
-		return "", "", errors.New("received unexpected type of token")
+		return "", "", time.Now(), errors.New("received unexpected type of token")
 	}
 
 	rtkn, ok := session.Values[randomID+"RefreshToken"].(string)
 	if !ok {
-		return "", "", errors.New("received unexpected type of refresh token")
+		return "", "", time.Now(), errors.New("received unexpected type of refresh token")
 	}
 
-	return tkn, rtkn, nil
+	expiry, ok := session.Values[randomID+"Expiry"].(*time.Time)
+	if !ok {
+		return "", "", time.Now(), errors.New("received unexpected type of token expiry time")
+	}
+
+	return tkn, rtkn, *expiry, nil
 }
