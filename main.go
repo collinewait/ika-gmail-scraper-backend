@@ -14,7 +14,7 @@ func main() {
 	r := router.NewRouter()
 	headers := handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Authorization", "Origin"})
 	methods := handlers.AllowedMethods([]string{"GET", "POST"})
-	origins := handlers.AllowedOrigins([]string{"https://accounts.google.com", os.Getenv("FRONTEND_URL")})
+	origins := handlers.AllowedOrigins([]string{"https://accounts.google.com", os.Getenv("FRONTEND_BASE_URL")})
 	allowCreds := handlers.AllowCredentials()
 	log.Fatal(http.ListenAndServe(GetPort(), handlers.CORS(headers, methods, origins, allowCreds)(r)))
 }

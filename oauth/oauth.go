@@ -38,7 +38,7 @@ func init() {
 
 	store.Options = &sessions.Options{
 		Path:     "/",
-		MaxAge:   3600 * 12, // 12 hours
+		MaxAge:   3600 * 6, // 12 hours
 		HttpOnly: true,
 	}
 }
@@ -76,7 +76,7 @@ func (oauth *Oauth) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 
 	jwtToken, _ := oauth.generateJwtToken()
 
-	http.Redirect(w, r, os.Getenv("FRONTEND_URL")+"?access_token="+jwtToken, http.StatusFound)
+	http.Redirect(w, r, os.Getenv("FRONTEND_REDIRECT_URL")+"?access_token="+jwtToken, http.StatusFound)
 }
 
 var getToken = func(code string) *oauth2.Token {
@@ -109,7 +109,7 @@ type Claims struct {
 }
 
 func (oauth *Oauth) generateJwtToken() (string, error) {
-	expirationTime := time.Now().Add(12 * time.Hour)
+	expirationTime := time.Now().Add(6 * time.Hour)
 	claims := &Claims{
 		RandomID: oauth.stateString,
 		StandardClaims: jwt.StandardClaims{
@@ -149,18 +149,39 @@ func (oauth *Oauth) saveoauthTokensInSession(
 	oauth2Token *oauth2.Token,
 ) error {
 
-	session, err := store.Get(r, "oauth-session")
+	sessionTkn, err := store.Get(r, "oauth-tkn-session")
 	if err != nil {
-		fmt.Println("Error in saveoauthTokenInSession: ", err.Error())
+		fmt.Println("Error creating oauth-tkn-session: ", err.Error())
+		return err
+	}
+	sessionRtkn, err := store.Get(r, "session-rtkn-session")
+	if err != nil {
+		fmt.Println("Error creating session-rtkn-session: ", err.Error())
+		return err
+	}
+	sessionExp, err := store.Get(r, "expiry-session")
+	if err != nil {
+		fmt.Println("Error creating expiry-session: ", err.Error())
 		return err
 	}
 
-	session.Values[oauth.stateString+"AccessToken"] = oauth2Token.AccessToken
-	session.Values[oauth.stateString+"RefreshToken"] = oauth2Token.RefreshToken
-	session.Values[oauth.stateString+"Expiry"] = oauth2Token.Expiry
-	err = session.Save(r, w)
+	sessionTkn.Values[oauth.stateString+"AccessToken"] = oauth2Token.AccessToken
+	sessionRtkn.Values[oauth.stateString+"RefreshToken"] = oauth2Token.RefreshToken
+	sessionExp.Values[oauth.stateString+"Expiry"] = oauth2Token.Expiry
+
+	err = sessionTkn.Save(r, w)
 	if err != nil {
-		fmt.Println("Error in saveoauthTokenInSession: ", err.Error())
+		fmt.Println("Error saving session-rtkn-session: ", err.Error())
+		return err
+	}
+	err = sessionRtkn.Save(r, w)
+	if err != nil {
+		fmt.Println("Error saving session-rtkn-session: ", err.Error())
+		return err
+	}
+	err = sessionExp.Save(r, w)
+	if err != nil {
+		fmt.Println("Error saving expiry-session: ", err.Error())
 		return err
 	}
 
@@ -172,22 +193,30 @@ func RetrieveTokensFromSession(
 	r *http.Request,
 	randomID string,
 ) (string, string, time.Time, error) {
-	session, err := store.Get(r, "oauth-session")
+	sessionTkn, err := store.Get(r, "oauth-tkn-session")
+	if err != nil {
+		return "", "", time.Now(), err
+	}
+	sessionRtkn, err := store.Get(r, "session-rtkn-session")
+	if err != nil {
+		return "", "", time.Now(), err
+	}
+	sessionExp, err := store.Get(r, "expiry-session")
 	if err != nil {
 		return "", "", time.Now(), err
 	}
 
-	tkn, ok := session.Values[randomID+"AccessToken"].(string)
+	tkn, ok := sessionTkn.Values[randomID+"AccessToken"].(string)
 	if !ok {
 		return "", "", time.Now(), errors.New("received unexpected type of token")
 	}
 
-	rtkn, ok := session.Values[randomID+"RefreshToken"].(string)
+	rtkn, ok := sessionRtkn.Values[randomID+"RefreshToken"].(string)
 	if !ok {
 		return "", "", time.Now(), errors.New("received unexpected type of refresh token")
 	}
 
-	expiry, ok := session.Values[randomID+"Expiry"].(*time.Time)
+	expiry, ok := sessionExp.Values[randomID+"Expiry"].(*time.Time)
 	if !ok {
 		return "", "", time.Now(), errors.New("received unexpected type of token expiry time")
 	}
