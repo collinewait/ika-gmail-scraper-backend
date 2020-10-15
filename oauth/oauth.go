@@ -38,8 +38,10 @@ func init() {
 
 	store.Options = &sessions.Options{
 		Path:     "/",
-		MaxAge:   3600 * 6, // 12 hours
+		MaxAge:   600, // 10 minutes
 		HttpOnly: true,
+		Secure: true,
+		SameSite: http.SameSiteNoneMode,
 	}
 }
 
@@ -171,9 +173,10 @@ func (oauth *Oauth) saveoauthTokensInSession(
 
 	err = sessionTkn.Save(r, w)
 	if err != nil {
-		fmt.Println("Error saving session-rtkn-session: ", err.Error())
+		fmt.Println("Error saving session-tkn-session: ", err.Error())
 		return err
 	}
+
 	err = sessionRtkn.Save(r, w)
 	if err != nil {
 		fmt.Println("Error saving session-rtkn-session: ", err.Error())
